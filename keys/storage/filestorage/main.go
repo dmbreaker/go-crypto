@@ -54,7 +54,6 @@ var _ keys.Storage = FileStore{}
 // Put creates two files, one with the public info as json, the other
 // with the (encoded) private key as gpg ascii-armor style
 func (s FileStore) Put(name string, salt, key []byte, info keys.Info) error {
-	fmt.Println("fput", len(salt))
 	pub, priv := s.nameToPaths(name)
 
 	// write public info
@@ -79,7 +78,6 @@ func (s FileStore) Get(name string) (salt []byte, key []byte, info keys.Info, er
 	}
 
 	salt, key, _, err = read(priv)
-	fmt.Println("fget", len(salt))
 	return salt, key, info.Format(), err
 }
 
