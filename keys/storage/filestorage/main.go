@@ -69,7 +69,7 @@ func (s FileStore) Put(name string, salt, key []byte, info keys.Info) error {
 // Get loads the info and (encoded) private key from the directory
 // It uses `name` to generate the filename, and returns an error if the
 // files don't exist or are in the incorrect format
-func (s FileStore) Get(name string) (salt []byte, key []byte, info keys.Info, err error) {
+func (s FileStore) Get(name string) (salt, key []byte, info keys.Info, err error) {
 	pub, priv := s.nameToPaths(name)
 
 	info, err = readInfo(pub)
@@ -151,9 +151,12 @@ func readInfo(path string) (info keys.Info, err error) {
 		return info, errors.Errorf("Unknown key type: %s", block)
 	}
 	pk, err := crypto.PubKeyFromBytes(key)
+	if err != nil {
+		return info, errors.Wrap(err, "Unable to convert bytes to pubKey.")
+	}
+
 	info.Name = headers["name"]
 	info.PubKey = pk
-
 	return info, nil
 }
 
@@ -164,7 +167,6 @@ func read(path string) (salt, key []byte, name string, err error) {
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "Reading data")
 	}
-	defer f.Close()
 
 	d, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -180,8 +182,9 @@ func read(path string) (salt, key []byte, name string, err error) {
 	if headers["kdf"] != "bcrypt" {
 		return nil, nil, "", errors.Errorf("Unrecognized KDF type: %v", headers["kdf"])
 	}
+	// NOTE: Some older keys were not stored with a salt.
 	if headers["salt"] == "" {
-		return nil, nil, "", errors.Errorf("Missing salt bytes")
+		return nil, key, headers["name"], nil
 	}
 	salt, err = hex.DecodeString(headers["salt"])
 	if err != nil {
@@ -197,7 +200,7 @@ func writeInfo(path string, info keys.Info) error {
 	if err != nil {
 		return errors.Wrap(err, "Writing data")
 	}
-	defer f.Close()
+
 	headers := map[string]string{"name": info.Name}
 	text := crypto.EncodeArmor(BlockType, headers, info.PubKey.Bytes())
 	_, err = f.WriteString(text)
@@ -211,12 +214,13 @@ func write(path, name string, salt, key []byte) error {
 	if err != nil {
 		return errors.Wrap(err, "Writing data")
 	}
-	defer f.Close()
+
 	headers := map[string]string{
 		"name": name,
 		"kdf":  "bcrypt",
 		"salt": fmt.Sprintf("%X", salt),
 	}
+
 	text := crypto.EncodeArmor(BlockType, headers, key)
 	_, err = f.WriteString(text)
 	return errors.Wrap(err, "Writing data")
