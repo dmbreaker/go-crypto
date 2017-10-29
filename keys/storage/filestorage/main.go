@@ -85,8 +85,6 @@ func (s FileStore) Get(name string) (salt, key []byte, info keys.Info, err error
 // Info for all keys located in this directory.
 func (s FileStore) List() (keys.Infos, error) {
 	dir, err := os.Open(s.keyDir)
-	defer dir.Close()
-
 	if err != nil {
 		return nil, errors.Wrap(err, "List Keys")
 	}
@@ -134,11 +132,11 @@ func (s FileStore) nameToPaths(name string) (pub, priv string) {
 
 func readInfo(path string) (info keys.Info, err error) {
 	f, err := os.Open(path)
-	defer f.Close()
-
 	if err != nil {
 		return info, errors.Wrap(err, "Reading data")
 	}
+	defer f.Close()
+
 	d, err := ioutil.ReadAll(f)
 	if err != nil {
 		return info, errors.Wrap(err, "Reading data")
@@ -162,11 +160,10 @@ func readInfo(path string) (info keys.Info, err error) {
 
 func read(path string) (salt, key []byte, name string, err error) {
 	f, err := os.Open(path)
-	defer f.Close()
-
 	if err != nil {
 		return nil, nil, "", errors.Wrap(err, "Reading data")
 	}
+	defer f.Close()
 
 	d, err := ioutil.ReadAll(f)
 	if err != nil {
@@ -195,11 +192,10 @@ func read(path string) (salt, key []byte, name string, err error) {
 
 func writeInfo(path string, info keys.Info) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, keyPerm)
-	defer f.Close()
-
 	if err != nil {
 		return errors.Wrap(err, "Writing data")
 	}
+	defer f.Close()
 
 	headers := map[string]string{"name": info.Name}
 	text := crypto.EncodeArmor(BlockType, headers, info.PubKey.Bytes())
@@ -209,11 +205,10 @@ func writeInfo(path string, info keys.Info) error {
 
 func write(path, name string, salt, key []byte) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, keyPerm)
-	defer f.Close()
-
 	if err != nil {
 		return errors.Wrap(err, "Writing data")
 	}
+	defer f.Close()
 
 	headers := map[string]string{
 		"name": name,
